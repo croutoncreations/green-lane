@@ -1,0 +1,6 @@
+# actionlint 1.7.12 does not yet know the job.workflow_* context properties
+# (documented: https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#job-context).
+paths:
+  .github/workflows/green-lane.yml:
+    ignore:
+      - 'property "workflow_(ref|sha|repository)" is not defined in object type'

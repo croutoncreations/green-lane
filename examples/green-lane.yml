@@ -1,0 +1,61 @@
+# .github/green-lane.yml: the Green Lane policy for one repository.
+#
+# Green Lane reads this file from the default-branch tip, never from a PR.
+# The file is always a denied path, so a PR can never loosen its own policy;
+# change it through a normal, human-merged PR.
+version: 1
+base_branch: main
+
+# "github": the default branch has native protection that GitHub enforces
+#           (strict up-to-date, the required checks below, resolved
+#           conversations). The worker verifies it before every merge.
+# "worker": no usable branch protection (for example a private repo on the
+#           free plan). The worker is the only gate; see the guide for what is
+#           weaker.
+branch_protection: github
+
+# Exact GitHub logins whose PRs may use the lane. Include bot logins that
+# open PRs, e.g. "app/my-bot" is not a login; use "my-bot[bot]".
+allowed_authors:
+  - jfox85
+
+# Collaborators allowed write, maintain or admin access. Optional. When set,
+# live mode audits every collaborator before merging and stops if anyone else
+# can write; that needs the access_audit_token secret.
+# allowed_writers: [jfox85]
+
+# Every check must pass on the exact PR head and come from this GitHub App
+# (15368 is GitHub Actions) and this workflow ID:
+#   gh api repos/OWNER/REPO/actions/workflows --jq '.workflows[] | "\(.id) \(.path)"'
+required_checks:
+  - {name: test, app_id: 15368, workflow_id: 123456789}
+
+size:
+  code: {max_files: 6, max_changed_lines: 150, max_lockfile_changes: 0}
+  docs: {max_files: 5, max_changed_lines: 100, max_lockfile_changes: 0}
+
+# Added to the mandatory list (CI workflows, .github/scripts and ci,
+# secrets/keys, release/signing, migrations and *.sql, CODEOWNERS, lockfiles,
+# this file). You cannot remove mandatory entries.
+denied_paths:
+  - infra/**
+  - "**/auth/**"
+
+# At least one accepted reviewer must have finished a clean review of the
+# exact head. Any non-author review prose still blocks.
+#   codex                 Codex summary: code review completed on the head
+#                         with no unresolved findings
+#   coderabbit            CodeRabbit summary covering the head
+#   claude-reviewed-head  github-actions[bot] comment that starts with
+#                         `marker`, says "**Verdict: no blocking issues**" and
+#                         ends with <!-- reviewed-head: SHA -->; its `check`
+#                         must also pass on that head
+#   check                 a pinned check that passes only when a review
+#                         completed cleanly on the head
+reviewers:
+  - format: codex
+  # - {format: claude-reviewed-head, check: claude-review, marker: "<!-- brigade-claude-review -->"}
+  # - {format: check, check: claude-review}
+
+# Any of these labels keeps a PR out of the lane.
+opt_out_labels: [green-lane-hold, do-not-merge]

@@ -1,0 +1,43 @@
+# .github/workflows/green-lane.yml in the repository that uses Green Lane.
+# Disabling this workflow is the kill switch.
+name: Green Lane
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+  # Re-evaluate soon after CI finishes on a PR. Runs this file from the
+  # default branch; the PR is only a trigger.
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+# One worker at a time, never cancelled mid-run.
+concurrency:
+  group: green-lane
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  green-lane:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.event == 'pull_request' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+      checks: read
+      issues: read
+    # Pin by full commit SHA. Update it through a reviewed PR.
+    uses: croutoncreations/green-lane/.github/workflows/green-lane.yml@0000000000000000000000000000000000000000
+    with:
+      mode: shadow            # change to live after the shadow period
+      workflow_file: green-lane.yml
+      # post_merge_dispatch: ci.yml
+    # secrets:
+    #   access_audit_token: ${{ secrets.GREEN_LANE_ACCESS_AUDIT_TOKEN }}
