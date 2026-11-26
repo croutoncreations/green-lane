@@ -33,18 +33,20 @@ on:
 
 permissions:
   contents: read
-
 jobs:
-  green-lane:
+  # Shadow needs read scopes only, so a shadow caller can grant read-only
+  # permissions. A called job cannot get more than its caller grants.
+  shadow:
+    if: inputs.mode == 'shadow'
     runs-on: ${{ inputs.runs_on }}
     timeout-minutes: 30
     permissions:
-      contents: write        # squash merge (live only uses it)
-      pull-requests: write   # merge endpoint
-      actions: write         # read the kill switch; post-merge dispatch
+      contents: read
+      pull-requests: read
+      actions: read
       checks: read
-      issues: read           # issue comments carry reviewer summaries
-    steps:
+      issues: read
+    steps: &steps
       - name: Refuse unsafe callers
         env:
           MODE: ${{ inputs.mode }}
@@ -54,7 +56,6 @@ jobs:
           WF_REF: ${{ job.workflow_ref }}
         run: |
           set -euo pipefail
-          case "$MODE" in shadow|live) ;; *) echo "::error::mode must be shadow or live"; exit 1;; esac
           case "$EVENT" in schedule|workflow_dispatch|workflow_run) ;; *)
             echo "::error::Green Lane only runs on schedule, workflow_dispatch or workflow_run, never on PR events"; exit 1;; esac
           if [ "$REF" != "$DEFAULT_REF" ]; then
@@ -77,14 +78,15 @@ jobs:
       - name: Build trusted evaluator
         working-directory: .green-lane-src
         run: go build -trimpath -o "$RUNNER_TEMP/green-lane" ./cmd/green-lane
-      - name: Run Green Lane (${{ inputs.mode }})
+      - name: Run Green Lane
         env:
+          MODE: ${{ inputs.mode }}
           GITHUB_TOKEN: ${{ github.token }}
           GREEN_LANE_LIVE_ENABLED: ${{ vars.GREEN_LANE_LIVE_ENABLED }}
           GREEN_LANE_WORKFLOW_FILE: ${{ inputs.workflow_file }}
           GREEN_LANE_POST_MERGE_DISPATCH: ${{ inputs.post_merge_dispatch }}
           GREEN_LANE_ACCESS_AUDIT_TOKEN: ${{ secrets.access_audit_token }}
-        run: '"$RUNNER_TEMP/green-lane" "${{ inputs.mode }}"'
+        run: '"$RUNNER_TEMP/green-lane" "$MODE"'
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -92,3 +94,26 @@ jobs:
           path: green-lane-report.json
           if-no-files-found: warn
           retention-days: 30
+
+  # Live adds the write scopes the single merge call and post-merge dispatch
+  # need. Same steps; the binary still merges only when
+  # GREEN_LANE_LIVE_ENABLED is exactly "true".
+  live:
+    if: inputs.mode == 'live'
+    runs-on: ${{ inputs.runs_on }}
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+      checks: read
+      issues: read
+    steps: *steps
+
+  invalid-mode:
+    if: inputs.mode != 'shadow' && inputs.mode != 'live'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::error::mode must be shadow or live"
+          exit 1

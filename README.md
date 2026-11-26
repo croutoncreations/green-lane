@@ -38,7 +38,7 @@ All of these, on the exact current head:
 3. **Merge both through a normal PR.** Green Lane never merges changes to itself: both files are always denied paths.
 4. **Run shadow for a few days.** Run `gh workflow run green-lane.yml -R OWNER/REPO`, then read the `green-lane-shadow-*` artifact or the job summary. Compare its verdicts with what you would have merged by hand.
 5. **Go live**:
-   - change `mode: shadow` to `mode: live` in a reviewed PR;
+   - in one reviewed PR, change `mode: shadow` to `mode: live` and raise `contents`, `pull-requests` and `actions` to `write` in the caller's `permissions` (shadow runs with read scopes only);
    - then run `gh variable set GREEN_LANE_LIVE_ENABLED -R OWNER/REPO --body true`.
    - Optional: set `post_merge_dispatch: ci.yml`. Merges made with the workflow token don't trigger push workflows, so this dispatches CI on the default branch.
 6. **Optional writer audit.** Set `allowed_writers` in the policy and pass `access_audit_token`. Green Lane then refuses to merge if anyone else can push. Token setup:

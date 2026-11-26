@@ -27,10 +27,12 @@ jobs:
       (github.event.workflow_run.event == 'pull_request' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_repository.full_name == github.repository)
+    # Shadow needs read scopes only. For mode: live, raise contents,
+    # pull-requests and actions to write in the same reviewed PR.
     permissions:
-      contents: write
-      pull-requests: write
-      actions: write
+      contents: read
+      pull-requests: read
+      actions: read
       checks: read
       issues: read
     # Pin by full commit SHA. Update it through a reviewed PR.
