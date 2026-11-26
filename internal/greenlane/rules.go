@@ -285,7 +285,7 @@ func (e *Evaluator) checkDeniedPaths(pr PRInfo) RuleResult {
 				}
 			}
 		}
-		if len(outside) > 0 && false {
+		if len(outside) > 0 {
 			return RuleResult{
 				Name:    "Denied Paths",
 				Pass:    false,
