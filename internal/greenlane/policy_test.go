@@ -228,3 +228,19 @@ func TestExamplePolicyParses(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDeniedPathsIgnoreCase(t *testing.T) {
+	cfg, _, err := ParsePolicy([]byte(strings.Replace(testPolicyYAML, "denied_paths:\n", "denied_paths:\n  - \"**/*session*\"\n  - \"**/*prompt*\"\n  - Infra/**\n", 1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := NewEvaluator(cfg)
+	for _, p := range []string{"frontend/src/hooks/useSessionLock.ts", "CLI_HUMANIZE_PROMPT.md", "infra/main.tf", "INFRA/x.tf", ".GitHub/Workflows/ci.yml", "Go.Sum"} {
+		if e.checkDeniedPaths(PRInfo{Files: []PRFile{{Filename: p}}}).Pass {
+			t.Errorf("%s allowed", p)
+		}
+	}
+	if !e.checkDeniedPaths(PRInfo{Files: []PRFile{{Filename: "frontend/src/hooks/useWriting.ts"}}}).Pass {
+		t.Error("unrelated path denied")
+	}
+}

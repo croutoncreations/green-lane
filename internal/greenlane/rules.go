@@ -246,11 +246,13 @@ func (e *Evaluator) checkDeniedPaths(pr PRInfo) RuleResult {
 	var denied []string
 
 	// A rename touches both paths: moving a denied file elsewhere edits the
-	// denied path as much as changing it in place.
+	// denied path as much as changing it in place. Matching ignores case, so
+	// "*session*" also denies useSessionLock.ts and "*prompt*" denies
+	// CLI_PROMPT.md. Ignoring case can only deny more paths, never fewer.
 	for _, file := range pr.Files {
 		for _, p := range file.Paths() {
 			for _, pattern := range e.config.DeniedPaths {
-				if matchPattern(p, pattern) {
+				if matchPattern(strings.ToLower(p), strings.ToLower(pattern)) {
 					denied = append(denied, p)
 					break
 				}
