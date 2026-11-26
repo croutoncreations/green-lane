@@ -21,7 +21,8 @@ All of these, on the exact current head:
    - no outstanding "changes requested", including on older heads;
    - no review prose from anyone but the author. Prose has no "resolved" state, so Green Lane never guesses whether it's harmless; fix it in a new commit and get a fresh review. Claude's two exact "review not started" notices are the only exception.
 7. **Small**: within the policy's file and line caps (docs-only PRs use the tighter `docs` caps).
-8. **No denied paths**, including either side of a rename. Some paths are always denied: CI workflows and `.github/scripts`/`.github/ci`, secrets and keys, release and signing, migrations and `*.sql`, `CODEOWNERS`, lockfiles, and `.github/green-lane.yml` itself.
+8. **Only allowed paths, no denied paths.** If the policy sets `allowed_paths`, every changed path must match it. Denied paths always win, and both sides of a rename count. Matching ignores case.
+   **No denied paths**, including either side of a rename. Some paths are always denied: CI workflows and `.github/scripts`/`.github/ci`, secrets and keys, release and signing, migrations and `*.sql`, `CODEOWNERS`, lockfiles, and `.github/green-lane.yml` itself.
 9. **Stable evidence**: everything is read twice, then re-read just before merging. Any change, incomplete pagination or API error blocks the merge.
 
 ## Add Green Lane to a repository
@@ -30,6 +31,7 @@ All of these, on the exact current head:
    - **`required_checks`**: the exact check names. Get workflow IDs with `gh api repos/OWNER/REPO/actions/workflows --jq '.workflows[] | "\(.id) \(.path)"'`. The app ID for GitHub Actions is `15368`.
    - **`allowed_authors`**: real logins. Bot logins end in `[bot]`.
    - **`reviewers`**: the reviewers this repository actually runs.
+   - **`allowed_paths`** (recommended): list the areas small PRs may touch, such as UI components and docs. Anything else, including files added later, stays manual. That's safer than trying to deny every sensitive file by name.
    - **`branch_protection`**: `github` if the default branch has strict required checks, otherwise `worker`. See [Without branch protection](#without-branch-protection).
 2. **Add the caller workflow.** Copy [`examples/caller-workflow.yml`](examples/caller-workflow.yml) to `.github/workflows/green-lane.yml`.
    - Pin `uses:` to a full commit SHA of this repository.

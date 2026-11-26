@@ -85,6 +85,7 @@ type Policy struct {
 	RequiredChecks   []RequiredCheck  `yaml:"required_checks"`
 	Size             PolicySize       `yaml:"size"`
 	DeniedPaths      []string         `yaml:"denied_paths"`
+	AllowedPaths     []string         `yaml:"allowed_paths"`
 	Reviewers        []PolicyReviewer `yaml:"reviewers"`
 	OptOutLabels     []string         `yaml:"opt_out_labels"`
 	BranchProtection string           `yaml:"branch_protection"`
@@ -158,6 +159,7 @@ func ParsePolicy(data []byte) (Config, Policy, error) {
 		MaxFiles:            p.Size.Code.MaxFiles,
 		DocsDeps:            p.Size.Docs,
 		DeniedPaths:         append(MandatoryDeniedPaths(), p.DeniedPaths...),
+		AllowedPaths:        p.AllowedPaths,
 	}
 	for _, c := range p.RequiredChecks {
 		if c.Name == "" || c.AppID <= 0 || c.WorkflowID <= 0 {

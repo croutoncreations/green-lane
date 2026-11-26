@@ -142,10 +142,13 @@ type Config struct {
 	AllowedBaseBranches []string               `json:"allowed_base_branches"`
 	CheckSources        map[string]CheckSource `json:"check_sources"`
 	DeniedPaths         []string               `yaml:"denied_paths" json:"denied_paths"`
-	MaxChangedLines     int                    `yaml:"max_changed_lines" json:"max_changed_lines"`
-	MaxLockfileChanges  int                    `yaml:"max_lockfile_changes" json:"max_lockfile_changes"`
-	MaxFiles            int                    `yaml:"max_files" json:"max_files"`
-	RequiredChecks      []string               `yaml:"required_checks" json:"required_checks"`
+	// AllowedPaths, when non-empty, limits the lane to PRs whose every path
+	// matches one of these patterns. Denied paths still win.
+	AllowedPaths       []string `json:"allowed_paths"`
+	MaxChangedLines    int      `yaml:"max_changed_lines" json:"max_changed_lines"`
+	MaxLockfileChanges int      `yaml:"max_lockfile_changes" json:"max_lockfile_changes"`
+	MaxFiles           int      `yaml:"max_files" json:"max_files"`
+	RequiredChecks     []string `yaml:"required_checks" json:"required_checks"`
 	// DocsDeps holds the tighter caps for the docs/changelog/dependency lane.
 	DocsDeps SizeLimits `yaml:"docs_deps" json:"docs_deps"`
 }

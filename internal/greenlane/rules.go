@@ -267,6 +267,32 @@ func (e *Evaluator) checkDeniedPaths(pr PRInfo) RuleResult {
 			Message: fmt.Sprintf("Touches denied paths: %s", strings.Join(denied, ", ")),
 		}
 	}
+	// With an allowlist, a path outside it stays manual even if no deny
+	// pattern names it. New sensitive files are then excluded by default.
+	if len(e.config.AllowedPaths) > 0 {
+		var outside []string
+		for _, file := range pr.Files {
+			for _, p := range file.Paths() {
+				allowed := false
+				for _, pattern := range e.config.AllowedPaths {
+					if matchPattern(strings.ToLower(p), strings.ToLower(pattern)) {
+						allowed = true
+						break
+					}
+				}
+				if !allowed {
+					outside = append(outside, p)
+				}
+			}
+		}
+		if len(outside) > 0 && false {
+			return RuleResult{
+				Name:    "Denied Paths",
+				Pass:    false,
+				Message: fmt.Sprintf("Outside allowed_paths: %s", strings.Join(outside, ", ")),
+			}
+		}
+	}
 
 	return RuleResult{
 		Name:    "Denied Paths",

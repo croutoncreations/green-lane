@@ -244,3 +244,29 @@ func TestDeniedPathsIgnoreCase(t *testing.T) {
 		t.Error("unrelated path denied")
 	}
 }
+
+func TestAllowedPathsLimitTheLane(t *testing.T) {
+	cfg, _, err := ParsePolicy([]byte(strings.Replace(testPolicyYAML, "reviewers:", "allowed_paths:\n  - docs/**\n  - frontend/src/components/**\n  - \"**/*_test.go\"\nreviewers:", 1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := NewEvaluator(cfg)
+	for _, p := range []string{"docs/a.md", "frontend/src/components/Button.tsx", "Frontend/Src/Components/X.tsx", "backend/pkg/x/x_test.go"} {
+		if r := e.checkDeniedPaths(PRInfo{Files: []PRFile{{Filename: p}}}); !r.Pass {
+			t.Errorf("%s: %s", p, r.Message)
+		}
+	}
+	for _, p := range []string{"backend/pkg/routes/persona_routes.go", "frontend/src/lib/checkout.ts", "README.md"} {
+		if r := e.checkDeniedPaths(PRInfo{Files: []PRFile{{Filename: p}}}); r.Pass || !strings.Contains(r.Message, "Outside allowed_paths") {
+			t.Errorf("%s allowed: %+v", p, r)
+		}
+	}
+	// A deny pattern (here the mandatory **/.env*) wins over the allowlist.
+	if e.checkDeniedPaths(PRInfo{Files: []PRFile{{Filename: "frontend/src/components/.env.local"}}}).Pass {
+		t.Error("deny did not win")
+	}
+	// Both sides of a rename must be allowed.
+	if e.checkDeniedPaths(PRInfo{Files: []PRFile{{Filename: "docs/moved.go", PreviousFilename: "backend/pkg/routes/x.go"}}}).Pass {
+		t.Error("rename from outside the allowlist passed")
+	}
+}

@@ -41,6 +41,14 @@ denied_paths:
   - infra/**
   - "**/auth/**"
 
+# Optional allowlist. When set, every changed path must match one of these
+# (and none of the denied paths). New files outside it stay manual by
+# default, which is safer than trying to deny every sensitive file by name.
+# allowed_paths:
+#   - docs/**
+#   - "**/*.md"
+#   - frontend/src/components/**
+
 # At least one accepted reviewer must have finished a clean review of the
 # exact head. Any non-author review prose still blocks.
 #   codex                 Codex summary: code review completed on the head
