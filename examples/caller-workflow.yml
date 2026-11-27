@@ -27,8 +27,10 @@ jobs:
       (github.event.workflow_run.event == 'pull_request' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_repository.full_name == github.repository)
-    # Shadow needs read scopes only. For mode: live, raise contents,
-    # pull-requests and actions to write in the same reviewed PR.
+    # Shadow needs read scopes only. To go live, switch `uses` to
+    # green-lane-live.yml and raise contents, pull-requests and actions to
+    # write in the same reviewed PR. GitHub refuses to start the call if the
+    # caller grants less than the called workflow requests.
     permissions:
       contents: read
       pull-requests: read
@@ -36,10 +38,9 @@ jobs:
       checks: read
       issues: read
     # Pin by full commit SHA. Update it through a reviewed PR.
-    uses: croutoncreations/green-lane/.github/workflows/green-lane.yml@0000000000000000000000000000000000000000
+    uses: croutoncreations/green-lane/.github/workflows/green-lane-shadow.yml@0000000000000000000000000000000000000000
     with:
-      mode: shadow            # change to live after the shadow period
       workflow_file: green-lane.yml
-      # post_merge_dispatch: ci.yml
+      # live only: post_merge_dispatch: ci.yml
     # secrets:
     #   access_audit_token: ${{ secrets.GREEN_LANE_ACCESS_AUDIT_TOKEN }}

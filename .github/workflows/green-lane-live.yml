@@ -1,20 +1,25 @@
-# Reusable Green Lane workflow. Call it from a repository's own
+# Reusable Green Lane workflow, live mode. Call it from a repository's own
 # .github/workflows/green-lane.yml, pinned by full commit SHA:
 #
-#   uses: croutoncreations/green-lane/.github/workflows/green-lane.yml@<40-char sha>
+#   uses: croutoncreations/green-lane/.github/workflows/green-lane-live.yml@<40-char sha>
+#
+# Live merges at most one PR per run, and only when the repository variable
+# GREEN_LANE_LIVE_ENABLED is exactly "true". The caller must grant
+# contents, pull-requests and actions write.
 #
 # It builds the evaluator from THIS repository at the exact pinned commit
 # (job.workflow_sha), never from the caller and never from a PR. The caller's
 # policy is read through the API from its default-branch tip.
-name: Green Lane (reusable)
+#
+# Shadow and live are separate files on purpose: GitHub refuses to start a
+# called workflow when any of its jobs requests more permissions than the
+# caller grants, even a job that would be skipped. One file with both jobs
+# would force every shadow caller to grant write access.
+name: Green Lane live (reusable)
 
 on:
   workflow_call:
     inputs:
-      mode:
-        description: shadow (never merges) or live (merges at most one PR when enabled)
-        type: string
-        required: true
       workflow_file:
         description: The caller's workflow file name; disabling it is the kill switch
         type: string
@@ -33,23 +38,20 @@ on:
 
 permissions:
   contents: read
+
 jobs:
-  # Shadow needs read scopes only, so a shadow caller can grant read-only
-  # permissions. A called job cannot get more than its caller grants.
-  shadow:
-    if: inputs.mode == 'shadow'
+  green-lane:
     runs-on: ${{ inputs.runs_on }}
     timeout-minutes: 30
     permissions:
-      contents: read
-      pull-requests: read
-      actions: read
+      contents: write
+      pull-requests: write
+      actions: write
       checks: read
       issues: read
-    steps: &steps
+    steps:
       - name: Refuse unsafe callers
         env:
-          MODE: ${{ inputs.mode }}
           EVENT: ${{ github.event_name }}
           REF: ${{ github.ref }}
           DEFAULT_REF: refs/heads/${{ github.event.repository.default_branch }}
@@ -80,7 +82,7 @@ jobs:
         run: go build -trimpath -o "$RUNNER_TEMP/green-lane" ./cmd/green-lane
       - name: Run Green Lane
         env:
-          MODE: ${{ inputs.mode }}
+          MODE: live
           GITHUB_TOKEN: ${{ github.token }}
           GREEN_LANE_LIVE_ENABLED: ${{ vars.GREEN_LANE_LIVE_ENABLED }}
           GREEN_LANE_WORKFLOW_FILE: ${{ inputs.workflow_file }}
@@ -90,30 +92,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: green-lane-${{ inputs.mode }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: green-lane-live-${{ github.run_id }}-${{ github.run_attempt }}
           path: green-lane-report.json
           if-no-files-found: warn
           retention-days: 30
-
-  # Live adds the write scopes the single merge call and post-merge dispatch
-  # need. Same steps; the binary still merges only when
-  # GREEN_LANE_LIVE_ENABLED is exactly "true".
-  live:
-    if: inputs.mode == 'live'
-    runs-on: ${{ inputs.runs_on }}
-    timeout-minutes: 30
-    permissions:
-      contents: write
-      pull-requests: write
-      actions: write
-      checks: read
-      issues: read
-    steps: *steps
-
-  invalid-mode:
-    if: inputs.mode != 'shadow' && inputs.mode != 'live'
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          echo "::error::mode must be shadow or live"
-          exit 1
