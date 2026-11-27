@@ -1,0 +1,92 @@
+# Reusable Green Lane workflow, shadow mode. Call it from a repository's own
+# .github/workflows/green-lane.yml, pinned by full commit SHA:
+#
+#   uses: croutoncreations/green-lane/.github/workflows/green-lane-shadow.yml@<40-char sha>
+#
+# Shadow never merges and needs read scopes only, so the caller can grant
+# read-only permissions.
+#
+# It builds the evaluator from THIS repository at the exact pinned commit
+# (job.workflow_sha), never from the caller and never from a PR. The caller's
+# policy is read through the API from its default-branch tip.
+#
+# Shadow and live are separate files on purpose: GitHub refuses to start a
+# called workflow when any of its jobs requests more permissions than the
+# caller grants, even a job that would be skipped. One file with both jobs
+# would force every shadow caller to grant write access.
+name: Green Lane shadow (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      workflow_file:
+        description: The caller's workflow file name; disabling it is the kill switch
+        type: string
+        required: true
+      runs_on:
+        type: string
+        default: ubuntu-latest
+    secrets:
+      access_audit_token:
+        description: Fine-grained PAT with Metadata read; needed when the policy sets allowed_writers
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  green-lane:
+    runs-on: ${{ inputs.runs_on }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+      checks: read
+      issues: read
+    steps:
+      - name: Refuse unsafe callers
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          DEFAULT_REF: refs/heads/${{ github.event.repository.default_branch }}
+          WF_REF: ${{ job.workflow_ref }}
+        run: |
+          set -euo pipefail
+          case "$EVENT" in schedule|workflow_dispatch|workflow_run) ;; *)
+            echo "::error::Green Lane only runs on schedule, workflow_dispatch or workflow_run, never on PR events"; exit 1;; esac
+          if [ "$REF" != "$DEFAULT_REF" ]; then
+            echo "::error::Green Lane only runs from the default branch ($DEFAULT_REF), not $REF"; exit 1
+          fi
+          # Pinning by tag or branch would let a later push change the code that merges.
+          if ! [[ "$WF_REF" =~ @[0-9a-f]{40}$ ]]; then
+            echo "::error::Call this workflow pinned by a full commit SHA, not $WF_REF"; exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          persist-credentials: false
+          path: .green-lane-src
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: .green-lane-src/go.mod
+          cache: false
+      - name: Build trusted evaluator
+        working-directory: .green-lane-src
+        run: go build -trimpath -o "$RUNNER_TEMP/green-lane" ./cmd/green-lane
+      - name: Run Green Lane
+        env:
+          MODE: shadow
+          GITHUB_TOKEN: ${{ github.token }}
+          GREEN_LANE_LIVE_ENABLED: ${{ vars.GREEN_LANE_LIVE_ENABLED }}
+          GREEN_LANE_WORKFLOW_FILE: ${{ inputs.workflow_file }}
+          GREEN_LANE_ACCESS_AUDIT_TOKEN: ${{ secrets.access_audit_token }}
+        run: '"$RUNNER_TEMP/green-lane" "$MODE"'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: green-lane-shadow-${{ github.run_id }}-${{ github.run_attempt }}
+          path: green-lane-report.json
+          if-no-files-found: warn
+          retention-days: 30

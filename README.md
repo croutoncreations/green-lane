@@ -36,11 +36,11 @@ All of these, on the exact current head:
 2. **Add the caller workflow.** Copy [`examples/caller-workflow.yml`](examples/caller-workflow.yml) to `.github/workflows/green-lane.yml`.
    - Pin `uses:` to a full commit SHA of this repository.
    - Set `CI` in `workflow_run` to your CI workflow's name.
-   - Keep `mode: shadow`.
+   - Keep calling `green-lane-shadow.yml` with read-only `permissions`.
 3. **Merge both through a normal PR.** Green Lane never merges changes to itself: both files are always denied paths.
 4. **Run shadow for a few days.** Run `gh workflow run green-lane.yml -R OWNER/REPO`, then read the `green-lane-shadow-*` artifact or the job summary. Compare its verdicts with what you would have merged by hand.
 5. **Go live**:
-   - in one reviewed PR, change `mode: shadow` to `mode: live` and raise `contents`, `pull-requests` and `actions` to `write` in the caller's `permissions` (shadow runs with read scopes only);
+   - in one reviewed PR, change `uses:` from `green-lane-shadow.yml` to `green-lane-live.yml` and raise `contents`, `pull-requests` and `actions` to `write` in the caller's `permissions`. Shadow and live are separate files because GitHub refuses to start a called workflow when any of its jobs asks for more than the caller grants, even a job that would be skipped;
    - then run `gh variable set GREEN_LANE_LIVE_ENABLED -R OWNER/REPO --body true`.
    - Optional: set `post_merge_dispatch: ci.yml`. Merges made with the workflow token don't trigger push workflows, so this dispatches CI on the default branch.
 6. **Optional writer audit.** Set `allowed_writers` in the policy and pass `access_audit_token`. Green Lane then refuses to merge if anyone else can push. Token setup:
